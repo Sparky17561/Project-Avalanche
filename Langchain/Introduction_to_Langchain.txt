@@ -1,0 +1,43 @@
+What is LangChain
+
+LangChain is an open source framework that helps in building LLM based applications. It provides modular components and end-to-end tools that help developers build complex AI applications, such as chatbots, question-answering systems, retrieval-augmented generation (RAG), autonomous agents, and more.
+
+Supports all the major LLMs
+
+Simplifies developing LLM based applications
+
+Integrations available for all major tools
+
+Open source/Free/Actively developed
+
+Supports all major GenAI use cases
+
+
+
+Benefits of Langchain 
+
+Concept of Chains - diff components can be piled into one pipeline using langchain (series of task executed step by step)
+Model Agnostic Development - u use OpenAI / Gemini or AWS/GCP no problem
+Complete Ecosystem - rich component library with variations ranging from text splitters to diff embedding models .. rich variety .. cant say "oh we cant implement this through langchain"
+Memory and State Handling - u do the 2nd query talking abt the first query .. but models dont remember .. since they dont store history .. we use in-conversation memory of langchain to solve this problem 
+
+
+what u can build?
+
+conversational chatbots 
+AI knowledge assistants 
+AI agents - ex. Metro ticket booking agent
+Workflow Automation 
+Summarization/Research Helpers 
+
+
+Alternatives for Langchain 
+
+LlamaIndex 
+HayStack 
+
+
+
+RAG pipeline : 
+
+insert rag_flow_pipeline_provided_by_langchain_red_circles_are_variable.png

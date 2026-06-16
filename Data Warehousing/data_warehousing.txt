@@ -1,0 +1,428 @@
+An organisation will have multiple databases which will be structured , unstructured or streaming data
+
+% of orders were delivered in full and on time?
+which stores are receiving low rating?
+both of the above qns are descriptive
+we will use SQL queries to join the tables from multiple databases then we will perform aggregation
+and later perform normalization for analytics ready data
+
+data warehouse is mainly used for analytics data
+
+but what if this qn comes
+
+festival season is coming, what kind of discounts can increase our order value?
+
+
+!('Data Warehousing'){"data_warehousing.png"} -> insert this image in readme
+
+OLTP - online transactional processing
+OLAP - online analytical processing
+
+OLTP data is stored inside staging area (cheap cloud)
+
+
+
+staging area is messy
+data warehouse is pleasant 
+
+
+data lake is some cloud location where u r dumping all the data .. staging area is data lake
+
+
+Popular Data Lakes 
+
+Amazon S3
+Azure Data Lake Storage
+Google cloud storage 
+
+
+
+Data lake - purpose : raw data , data type: structured,unstructured, cost: cheap (S3,ADLS), performance : slower for queries, ACID transactions: Not guaranteed 
+Data Warehouse - purpose: clean,structured,analytics ready data ; data type : only structued data ; cost : High (Amazon RedShift, Google BigQuery) ; performance: fast for analytics, ACID transactions : fully supported 
+
+Data lakehouse - It combines best features of data lakes and data warehouses into a unified platform 
+
+Popular data lakehouse :
+
+Databricks - Delta Lake 
+Apache - Iceberg
+
+
+-----------------------------------------------------------
+
+
+What is a data warehouse 
+
+Central location to store every single data 
+
+
+Data : 
+Transactions 
+Sales 
+Budgets
+Marketing 
+HR
+
+
+in database ... in real time .. all the transactions are recorded
+
+then why do we need data warehouse?
+
+database is constantly interacting with source but u hv to build a report based on the data 
+
+... thing is u cant just do DQL on a production db .. it will slow down the performance as its inserting and ur asking DQL 
+
+so the thing is we store this in some seperate space 
+
+we load the data at some time ... in bulk from 
+
+
+we pulll data from database 
+
+in datawarehouse there are 2 things 
+
+staging area and core 
+
+staging area will get the data in raw form (no transformation)
+
+then we apply transforming the data 
+
+then this transformed data is stored in core layer ...which is accessed by data analyst and scientists 
+
+it can be used for ML models , dashboards etc 
+
+
+
+Data mart is just a subset of data warehouse 
+
+id data warehouse is a whole company 
+
+one data mart can be HR dept , IT dept etc 
+
+
+
+Incremental Loading :
+
+data alr gone to processing shouldnt go to processing again 
+
+we use CDC (change data capture)
+when we perform initial load .. we will use the max date (last row date) inside CDC 
+and next day we will check CDC .. and after CDC data will be going to processing 
+
+this is the whole idea of incremental loading 
+
+
+in staging area there are 2 layers 
+
+transient - truncate the data (in most cases we use this)
+persistence - save the data
+
+
+Spark SQL - normal sql queries for warehousing not Apache spark 
+
+
+in databrics hierarchy is 
+
+metastore
+catalog -> databases -> tables 
+
+
+-- creating warehouse 
+
+create database salesDWH 
+
+-- staging layer 
+
+-- initial load 
+
+create table salesDWH.stg_sales as select * from sales.orders
+
+-- transformation 
+
+create view salesDWH.trans_sales as select * from salesDWH.stg_sales where quantity is not null 
+
+any transformation like multiplying 10 to a column 
+
+
+-- core layer
+
+--load
+create table salesDWH.core_sales as select * from salesDWH.trans_sales
+
+
+-- display
+
+select * from salesDWH.core_sales 
+
+
+lets say next day 5 more records got added 
+
+for incremental run we will be needing cdc 
+
+
+
+then:
+
+-- staging layer
+
+--extract 
+create or replace table salesDWH.stg_sales as select * from sales.orders where OrderDate > '2024-02-10' // last date 
+--transform
+transform will be the same
+
+
+-- core layer 
+--load 
+
+create or replace table salesDWH.core_sales(
+    // all attributes 
+);
+
+
+what is data modelling ?
+
+process to structure ur data 
+
+types of data models 
+
+conceptual -> logical -> physical 
+
+
+everything starts with a concept 
+
+in conceptual model -> they will have high lvl business needs - we have X,Y, Z tables 
+
+how this tables will be connected to each other > logical model (such as joining attributes to connect)
+
+
+real physical tables and constraints etc .. are applied here > physicall lvl 
+
+
+
+Dimensional data modeling (logical model)
+
+store ur data in form of FACTS and DIMENSIONS TABLES
+
+
+FACT Table is the only table which is available only at the most granular lvl 
+
+in facts we will store numeric columns(you can perform aggregation etc) and keys 
+
+DIMENSION Table 
+
+we cant store any numeric value 
+
+!('Dimension and Fact')['dim_fact.png'] --> insert image here 
+
+
+Star Schema - no hierarchy will be present with dimensions .. only one fact table 
+
+90% of companies use this 
+
+insert star_schema.png
+
+Snowflake Schema - hierarchy between dimensions and one fact table 
+
+child dimensions also are connected to fact 
+
+insert snowflake_schema.png 
+
+
+from the main table after transformation we will seperate attributes based on relatability .. like seperating customer , product data etc 
+
+
+DimCustomers : 
+
+CREATE TABLE orderDWH.DimCustomers(
+    CustomerID INT,
+    DimCustomerKey INT,
+    CustomerName STRING,
+    CustomerEmail STRING
+)
+
+
+
+CREATE OR REPLACE VIEW  orderDWH.view_DimCustomers
+AS
+SELECT T.*,row_number() over(ORDER BY T.CustomerId) as DimCustomerKey FROM 
+(
+SELECT 
+    distinct(CustomerId) as CustomerId,
+    CustomerName,
+    CustomerEmail
+FROM 
+    orderDWH.trans_sales
+) AS T
+
+INSERT INTO orderDwh.DimCustomers
+SELECT * FROM orderDWH.view_DimCustomers
+
+
+like that do with every set of cols till dimensions are formed 
+
+
+FACT table 
+
+
+CREATE TABLE orderDWH.FactSales
+(
+    OrderID INT,
+    Quantity DECIMAL,
+    UnitPrice DECIMAL,
+    TotalAmount DECIMAL,
+    DimProductsKey INT,
+    DimCustomersKey INT,
+    DimRegionsKey INT,
+    DimDateKey INT -- keep date as seperate dimension
+)
+
+
+Table structure is ready : conceptual lvl done 
+
+now logical : connecting keys 
+
+DimRegion uses composite key to uniquely identify a row like combination of RegionID,RegionName,Country 
+
+insert dim_region.png
+
+Fact table display: 
+
+SELECT 
+    F.OrderID,
+    F.Quantity,
+    F.UnitPrice,
+    F.TotalAmount,
+    DC.DimCustomersKey,
+    DP.DimProductsKey,
+    DR.DimRegionKey,
+    DD.DimDateKey
+FROM 
+    orderDWH.trans_sales F
+LEFT JOIN 
+    orderDWH.DimCustomers DC 
+    ON F.CustomerID = DC.CustomerID
+LEFT JOIN 
+    orderDWH.dimproducts DP 
+    ON F.ProductID = DP.ProductID
+LEFT JOIN 
+    orderDWH.DimRegion DR 
+    ON DR.Country = F.Country
+LEFT JOIN 
+    orderDWH.DimDate DD 
+    ON F.OrderDate = DD.OrderDate;
+
+
+
+Types of FACT TABLES 
+
+Granular/Transactional FACT TABLE -> we dont change the granularity of that table .. 
+
+1 transaction means 1 row .. most commonly used 
+
+
+ Periodic FACT TABLE -> also known as SnapShot Fact Table 
+
+ 1 row != 1 transaction 
+
+ 1 row = monthly transaction if snapshot of fact table is done monthly 
+
+
+Accumulating Fact Table 
+
+1 row = process 
+
+table has so many date / timestamp columns 
+
+every date shows the journey of the transaction .. amazon delivery .. confirmed date , delivered date etc 
+
+
+Types of DIMENSION TABLES 
+
+Conformed Dimensions 
+
+lets say u have DimProducts and one fact table called FACTORDERS and other being FACTCancelled 
+
+will DimProducts be changed?
+no -> one dimension will be shared to multiple facts .. this is called conformed dimensions 
+
+
+Role Playing Dimensions 
+
+These kind of dimensions are created when fact table with dimension table on multiple conditions/ relnships
+
+
+so if factOrders and DImDate exist .
+
+and in DimDate there are dates lets say OrderDate and CancelledDate 
+
+thing is the DimDate can perform work of 2 dimensions ... like give only OrderDate or CancelledDate this is called role playing dimensions 
+
+
+Junk Dimension
+
+when we have like 1,2,3 this much less values then it is called junk dimensions 
+
+Country A Continent X
+Country B Continent X -> DimRegion -> Junk 
+
+Degenerate Dimension 
+
+lets say u have one column in table like only OrderId ... u dont have anything to map with it .. like only a date ... 
+
+just one col .. it is called degenerate dimension 
+
+
+Slowly Changing Dimensions 
+
+Type - 0
+Type - 1
+Type - 2 
+Type - 3
+
+in normalization - there are till 4NF but in industry we use till 3NF .. in SCD there are 6 types but we use till type - 2
+
+after a new month u inserted a new product 
+after a new month u changed ur product name 
+
+u wont change the fact table and build from scratch 
+
+u will use slowly changing dimensions 
+
+Type - 0 means no change 
+Type - 1 upsert 
+
+update + insert 
+u change the prod category 
+insert type1.png
+
+
+Type -2 history 
+
+in some cases they want to see the prev records .. then we add 3 cols ... eff_startDate(when it was initialised) , eff_ExpDate (a very huge date), inUse (boolean YES/NO)
+
+insert type2.png 
+
+Type - 3 Previous value 
+
+example we added Prev_cat 
+
+insert type3.png 
+
+previously it was classified was clothing but now category changed to Hair 
+
+
+implementation of SCD type 1 
+
+1 MERGE INTO sales_scd.DimProducts AS trg
+2 USING sales_scd.view_DimProducts AS src
+3 ON trg.ProductID = src.ProductID
+4 WHEN MATCHED THEN UPDATE SET *
+5 WHEN NOT MATCHED THEN INSERT *
+
+
+
+select * from sales_scd.DimProducts -> display type 1
+
+
+
+

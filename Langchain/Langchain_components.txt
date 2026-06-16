@@ -1,0 +1,167 @@
+Recap 
+
+Langchain is an open-source framework by developing applicatons powered by LLMs.
+
+--------------------------------------------------------------------------------------------
+
+Langchain Components 
+
+<attach "langchain_components.png">
+
+
+1) Models 
+
+In Langchain, "models" are the core interfaces through which u interact with AI models 
+
+If lets say we want to implement both OpenAI and Anthropic models in a single app .. wehave to write different codes 
+
+but with langchain we can simply do this ;
+
+
+
+Langchain Code - 
+
+from langchain_openai import ChatOpenAI 
+from langchain_anthropic import ChatAnthropic
+from dotenv import load_dotenv 
+
+load_dotenv()
+
+model1 = ChatOpenAI(model="gpt-4",temperature=0)
+model2 = ChatAnthropic(model="claude-3-opus-20240229")
+
+result1 = model1.invoke("Hey")
+result2 = model2.invoke("Hey")
+
+print(result1.content)
+print(result2.content)
+
+In langchain you can talk with 2 kind of models 
+
+- language model  input-text output-text 
+- embedding model input-text output-vector (used for semantic search)
+
+
+
+2) Prompts
+
+By the help of langchain u can - 
+
+1. Dynamic & Reusable Prompts 
+
+from langchain_core.prompts import PromptTemplate
+
+prompt = PromptTemplate.from_template("Summarize {topic} in {emotion} tone")
+print(prompt.format(topic="Cricket", emotion="fun"))
+
+
+2. Role based prompts 
+
+chat_prompt = ChatPromptTemplate.from_template([
+    ("system", "Hi you are a experienced {profession}"),
+    ("user","Tell me about {topic}"),
+])
+
+
+formatted_messages = chat_prompt.format_messages(profession="Doctor",topic="Viral Fever")
+
+
+3. Few Shot Prompting -> u give data of input n output for the LLM to memorize 
+
+examples = [
+  {"input": "I was charged twice for my subscription this month.", "output": "Billing Issue"},
+  {"input": "The app crashes every time I try to log in.", "output": "Technical Problem"},
+  {"input": "Can you explain how to upgrade my plan?", "output": "General Inquiry"},
+  {"input": "I need a refund for a payment I didn't authorize.", "output": "Billing Issue"},
+]
+
+# Step 2: Create an example template
+example_template = """
+Ticket: {input}
+Category: {output}
+"""
+
+# Step 3: Build the few-shot prompt template
+few_shot_prompt = FewShotPromptTemplate(
+    examples=examples,
+    example_prompt=PromptTemplate(input_variables=["input", "output"], template=example_template),
+    prefix="Classify the following customer support tickets into one of the categories: 'Billing Issue', 'Technical Problem', or 'General Inquiry'.\n\n",
+    suffix="\nTicket: {user_input}\nCategory:",
+    input_variables=["user_input"],
+)
+
+insert "few_shot_template_llm_input.png"
+
+3) Chains - we can make pipeline .. output of stage 1 becomes input of stage 2
+
+sequential chain -> one step at a time 
+
+Complex pipeline - 
+
+- parallel chain 
+
+
+input  ----> LLM 1  ->      LLM3  ------> report ---> continue --> output 
+            LLm 2 ---------^
+            
+
+
+- conditional chain 
+
+AI agent that receivesfeedback from user 
+
+u process the feedback as input .. if its good u say thank u else u can redirect to customer support email 
+
+
+4) Indexes 
+
+Indexes connect ur application to external knowledge - such as PDFs, websites or databases 
+
+it has - 
+
+Document loader 
+Text Splitter 
+Vector Store 
+Retrievers 
+
+-- u ask can u say section 80c ... but ur model doesnt have knowledge .. u have to provide the Indian Laws n Reg PDF as index (an external knowledge store)
+
+5) Memory 
+
+LLM API CALLS ARE STATELESS 
+
+Insert memory.png
+
+
+types of memory 
+
+
+ConversationBufferMemory: Stores a transcript of recent messages. Great for short chats but can grow large quickly.
+
+ConversationBufferWindowMemory: Only keeps the last N interactions to avoid excessive token usage.
+
+Summarizer-Based Memory: Periodically summarizes older chat segments to keep a condensed memory footprint.
+
+Custom Memory: For advanced use cases, you can store specialized state (e.g., the user's preferences or key facts about them) in a custom memory class.
+
+6) Agents 
+
+AI Agent is an evolution of a standard chatbot.
+
+Standard Chatbot: Uses LLMs (Large Language Models) for NLU (Natural Language Understanding) + Text gen (Text Generation).
+
+AI Agent: Described effectively as a "Chatbot with superpowers" (or similar wording implies enhanced capabilities beyond just talking).
+
+The Use Case: Travel Booking Agent (Right Side of Image) The diagram illustrates a practical scenario where an AI agent acts as a travel assistant:
+
+Context: The user interacts with a travel website.
+
+Parameters: The user is looking for a trip to Shimla or Manali for the date 24th Jan.
+
+Action: Unlike a passive chatbot, the Agent takes action via an API.
+
+External Integration: It connects to Indigo (the airline).
+
+Result: The agent successfully performs the task to "Book the flight."
+
+

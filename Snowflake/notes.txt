@@ -1,0 +1,278 @@
+Snowflake is a cloud-based SQL Data Warehouse 
+
+!(insert data_warehousing.png)  image 
+
+
+Here is the text content extracted from the comparison table in the image:
+
+|  | RDBMS (e.g., Oracle, MySQL) | Data Warehouse (Snowflake) |
+| --- | --- | --- |
+| **Primary Use** | Transactions (OLTP) | Analytics (OLAP) |
+| **Typical workload** | Many small reads/writes, high concurrency (day to day app transactions like orders, payments etc.) | Few very large queries scanning billions of rows. (large scale analytics, dashboards) |
+| **Management** | Self-managed | Fully managed SaaS |
+
+
+Snowflake is a cloud-based AI Data Platform that combines data warehousing, data engineering, machine learning, AI application development, data sharing, and governance in a unified environment.
+
+
+/*--
+Tasty Bytes is a fictitious, global food truck network, that is on a mission to serve unique food options with high
+quality items in a safe, convenient and cost effective way. In order to drive forward on their mission, Tasty Bytes
+is beginning to leverage the Snowflake Data Cloud.
+
+Within this Worksheet, we will walk through the end to end process required to load a CSV file containing Menu specific data
+that is currently hosted in Blob Storage.
+--*/
+
+-------------------------------------------------------------------------------------------
+    -- Step 1: To start, let's set the Role and Warehouse context
+        -- USE ROLE: https://docs.snowflake.com/en/sql-reference/sql/use-role
+        -- USE WAREHOUSE: https://docs.snowflake.com/en/sql-reference/sql/use-warehouse
+-------------------------------------------------------------------------------------------
+
+/*--
+    - To run a single query, place your cursor in the query editor and select the Run button (⌘-Return).
+    - To run the entire worksheet, select 'Run All' from the dropdown next to the Run button (⌘-Shift-Return).
+--*/
+
+---> set the Role
+USE ROLE SNOWFLAKE_LEARNING_ROLE;
+
+---> set the Warehouse
+USE WAREHOUSE SNOWFLAKE_LEARNING_WH;
+
+---> set the Database
+USE DATABASE SNOWFLAKE_LEARNING_DB;
+
+---> set the Schema
+SET schema_name = CONCAT(current_user(), '_LOAD_SAMPLE_DATA_FROM_S3');
+USE SCHEMA IDENTIFIER($schema_name);
+
+-------------------------------------------------------------------------------------------
+    -- Step 2: With context in place, let's now create a Table
+        -- CREATE TABLE: https://docs.snowflake.com/en/sql-reference/sql/create-table -- not necessary
+-----------------------------------------------------------------------------------------
+
+---> create the Raw Menu Table
+CREATE OR REPLACE TABLE MENU
+(
+    menu_id NUMBER(19,0),
+    menu_type_id NUMBER(38,0),
+    menu_type VARCHAR(16777216),
+    truck_brand_name VARCHAR(16777216),
+    menu_item_id NUMBER(38,0),
+    menu_item_name VARCHAR(16777216),
+    item_category VARCHAR(16777216),
+    item_subcategory VARCHAR(16777216),
+    cost_of_goods_usd NUMBER(38,4),
+    sale_price_usd NUMBER(38,4),
+    menu_item_health_metrics_obj VARIANT
+);
+
+---> confirm the empty Menu table exists
+SELECT * FROM menu;
+
+
+-------------------------------------------------------------------------------------------
+    -- Step 3: To connect to the Blob Storage, let's create a Stage
+        -- Creating an S3 Stage: https://docs.snowflake.com/en/user-guide/data-load-s3-create-stage
+-------------------------------------------------------------------------------------------
+
+CREATE OR REPLACE STAGE blob_stage
+url = 's3://sfquickstarts/tastybytes/'
+file_format = (type = csv);
+
+---> query the Stage to find the Menu CSV file
+LIST @blob_stage/raw_pos/menu/;
+
+
+-------------------------------------------------------------------------------------------
+    -- Step 4: Now let's Load the Menu CSV file from the Stage
+        -- COPY INTO <table>: https://docs.snowflake.com/en/sql-reference/sql/copy-into-table
+-------------------------------------------------------------------------------------------
+
+---> copy the Menu file into the Menu table
+COPY INTO menu
+FROM @blob_stage/raw_pos/menu/;
+
+
+-------------------------------------------------------------------------------------------
+    -- Step 5: Query the Menu table
+        -- SELECT: https://docs.snowflake.com/en/sql-reference/sql/select
+        -- TOP <n>: https://docs.snowflake.com/en/sql-reference/constructs/top_n
+        -- FLATTEN: https://docs.snowflake.com/en/sql-reference/functions/flatten
+-------------------------------------------------------------------------------------------
+
+---> how many rows are in the table?
+SELECT COUNT(*) AS row_count FROM menu;
+
+---> what do the top 10 rows look like?
+SELECT TOP 10 * FROM menu;
+
+---> what menu items does the Freezing Point brand sell?
+SELECT
+   menu_item_name
+FROM menu
+WHERE truck_brand_name = 'Freezing Point';
+
+---> what is the profit on Mango Sticky Rice?
+SELECT
+   menu_item_name,
+   (sale_price_usd - cost_of_goods_usd) AS profit_usd
+FROM menu
+WHERE TRUE
+AND truck_brand_name = 'Freezing Point'
+AND menu_item_name = 'Mango Sticky Rice';
+
+---> to finish, let's extract the Mango Sticky Rice ingredients from the semi-structured column
+SELECT
+    m.menu_item_name,
+    obj.value:"ingredients"::ARRAY AS ingredients
+FROM menu m,
+    LATERAL FLATTEN (input => m.menu_item_health_metrics_obj:menu_item_health_metrics) obj
+WHERE TRUE
+AND truck_brand_name = 'Freezing Point'
+AND menu_item_name = 'Mango Sticky Rice';
+
+SELECT * FROM sales AT(OFFSET => -3600);
+
+
+## Cloud Native, Fully Managed
+
+* **SaaS (Software as a Service) platform**, no servers, clusters or maintenance to manage
+* **Runs on AWS, Azure, GCP** with same experience
+
+
+## Separation of compute and storage
+
+* In traditional systems, compute and storage and tightly coupled
+* In snowflake, they are independent. You can scale individually
+
+we have virtual warehouses .. independent scalability 
+
+
+In Snowflake, **Automatic Performance Optimization** means the system handles the heavy lifting of tuning, indexing, and physical data distribution behind the scenes without requiring a database administrator (DBA).
+
+Here is how those three concepts work together to make your queries run incredibly fast:
+
+---
+
+### 1. Micro-partitioning
+
+Traditional databases require you to manually define partition keys and manage static partitions. Snowflake skips all of that.
+
+* **How it works:** Every time you load data into a Snowflake table, it automatically breaks it down into contiguous, compressed chunks called **micro-partitions** (typically between 50 MB and 500 MB of uncompressed data).
+* **The Benefit:** Data is stored in a columnar format. This means Snowflake maps out exactly where every column's data lives across these tiny partitions, laying the groundwork for highly targeted data scanning.
+
+### 2. Pruning
+
+Pruning is Snowflake's way of completely ignoring data that your query doesn't need, which drastically cuts down execution time.
+
+* **How it works:** For every single micro-partition, Snowflake automatically captures and maintains metadata—like the minimum and maximum values for every column. When you write a query with a `WHERE` clause (e.g., `WHERE OrderDate >= '2026-01-01'`), Snowflake checks this metadata first.
+* **The Benefit:** If a micro-partition's date range is only within 2025, Snowflake "prunes" (skips) it entirely. It only reads the specific partitions that actually contain relevant data, saving massive amounts of compute power.
+
+### 3. Caching
+
+Snowflake utilizes multiple layers of caching to avoid doing the same work twice, ensuring that repetitive dashboard or user queries return results almost instantly.
+
+* **How it works:** Snowflake mainly utilizes three types of caches:
+* **Result Cache:** Holds the results of queries executed in the last 24 hours. If you run the exact same query and the underlying data hasn't changed, Snowflake bypasses the compute warehouse entirely and hands you the result instantly for free.
+* **Local Disk Cache / SSD Cache:** When a running virtual warehouse pulls micro-partitions from central cloud storage, it caches them locally on its own fast SSDs.
+
+
+* **The Benefit:** Subsequent queries running on that same warehouse don't need to re-download the data from slower centralized storage; they read it straight from the ultra-fast local cache.
+
+## Support for Structured and Semi-structured data
+
+* Works natively with structured: Tables, columns and semi-structured (JSON, Avro, Parquet, ORC, XML)
+* Use VARIANT data type to store and query semi-structured data
+
+## Time Travel and Zero-copy Cloning
+
+```sql
+SELECT * FROM sales AT(OFFSET => -3600);
+
+```
+
+* **Zero copy cloning:** Instantly create a clone of table or database without duplicating data
+
+---
+
+### How These Features Work in Snowflake
+
+These two features are closely tied to Snowflake's underlying architecture, where data files (micro-partitions) are **immutable** (they never change once written).
+
+#### 1. Time Travel
+
+Because old data files are never overwritten when data is updated or deleted, Snowflake can simply look back at the state of your data metadata at a specific point in time.
+
+* **The Code Example:** The query `AT(OFFSET => -3600)` tells Snowflake to read the `sales` table exactly as it looked 3,600 seconds (1 hour) ago.
+* **Use Cases:** It's a lifesaver if someone accidentally drops a table, runs an incorrect `UPDATE` statement without a `WHERE` clause, or if you need to perform historical data audits. Standard accounts allow you to go back up to 1 day, while Enterprise accounts can go back up to 90 days.
+
+#### 2. Zero-Copy Cloning
+
+If you want to spin up a Development or Testing environment with production data, traditional databases require you to copy terabytes of data, which takes hours and doubles your storage costs.
+
+* **How it works:** Snowflake’s `CLONE` command creates a new set of metadata pointers that point to the exact same immutable micro-partitions as the original table or database. No actual data is duplicated.
+* **The Benefit:** The operation is **instantaneous** and costs **zero additional storage** initially. You only pay for storage when changes are made to either the original or cloned table, as new micro-partitions are created to capture those modifications independently.
+
+## Built-in Security and Data Governance
+
+* Role-based access control (RBAC) and multi-factor authentication
+* Always-on encryption (in-transit and at-rest)
+* Row, column level access policies (dynamic data masking)
+
+
+Snowpark and Developer Ecosystem
+
+Continuous Data Ingestion with Snowpipe
+
+Fully Elastic, Pay as you go
+
+
+Here is the full text transcribed from the comparison table in **image_e7107d.png**, organized alongside a breakdown of what these differences mean in terms of modern cloud features versus traditional on-premises database limitations.
+
+---
+
+## Table Transcription from image_e7107d.png
+
+| Feature | Traditional Data Warehouse | Snowflake |
+| --- | --- | --- |
+| **Architecture** | On-prem or VM-based; tightly couples compute & storage | Cloud-native; separates compute and storage |
+| **Performance Tuning** | Manual indexing, partitioning, optimization | Automatic optimization (micro-partitioning, pruning, caching) |
+| **Data Types Supported** | Structured data only | Structured + semi-structured (JSON, Parquet, Avro) |
+| **Maintenance** | Manual backups, patching, tuning | Fully managed SaaS (no admin needed) |
+| **Cost Model** | Fixed hardware or license cost | Pay-as-you-go; compute auto-suspends when idle |
+| **Cloud Support** | Usually single-cloud or on-prem | Multi-cloud (AWS, Azure, GCP) |
+| **Use Case Fit** | Stable, predictable workloads | Dynamic, large-scale, modern analytics workloads |
+
+---
+
+## Detailed Context: Snowflake vs. Traditional / On-Prem Databases
+
+The categories outlined in **image_e7107d.png** showcase a fundamental paradigm shift in how data platforms function. Here is a deeper look at the core differences:
+
+### 1. Architecture: The Decoupling Revolution
+
+* **Traditional Systems:** Storage and compute are bundled together. If you run out of storage, you are forced to buy more servers (which brings unnecessary compute power you don't need). If complex queries are choking your CPU, you have to upgrade the whole system just to get more horsepower.
+* **Snowflake:** Separates compute and storage completely. Storage is handled in centralized cloud buckets, while compute is processed via independent virtual warehouses. You can scale storage to petabytes without touching compute, and you can spin up 10 different virtual warehouses to run separate workloads simultaneously against the exact same data pool without resource contention.
+
+### 2. Performance Tuning: DBA-Heavy vs. Hands-Off Automation
+
+* **Traditional Systems:** Demands constant human intervention. Database administrators (DBAs) spend hours building and rebuilding indexes, defining static partition keys, and tweaking query hints to prevent performance degradation.
+* **Snowflake:** Relies on automated, built-in features. It utilizes continuous background **micro-partitioning** and automatically captures statistical metadata. This enables instant **pruning** (ignoring irrelevant data blocks) and aggressive internal **caching** without a user ever needing to write an index or manually split a table.
+
+### 3. Data Types: Rigidity vs. Flexibility
+
+* **Traditional Systems:** Strictly relational (structured tables with fixed schemas). To load semi-structured data like JSON from an API or web app, you first have to build a complex ETL (Extract, Transform, Load) pipeline to flatten, parse, and map out the data fields into a strict table schema.
+* **Snowflake:** Features native support for both structured and semi-structured formats (JSON, Parquet, Avro, XML, etc.) using its unique `VARIANT` data type. You can ingest raw JSON directly into a column and run standard SQL queries directly over it using dot-notation.
+
+### 4. Maintenance and Cost: Capital Expense vs. Operational Utility
+
+* **Traditional Systems:** Require massive upfront investments in physical hardware, servers, and software licenses, alongside recurring expenses for routine maintenance, security patching, and upgrades. To handle holiday traffic spikes, you have to buy enough peak hardware capacity that ends up sitting idle 90% of the year.
+* **Snowflake:** Operates as a fully managed SaaS. Security patches, system upgrades, and backups occur automatically with zero downtime. Compute operates on a per-second, pay-as-you-go credit system. If a warehouse finishes running a massive batch report, it automatically shuts down (auto-suspends) so you stop paying for compute the second it goes idle.
+
+### 5. Deployment Freedom
+
+* **Traditional Systems:** Locked into a single location—either your physical server room or a single cloud vendor's infrastructure. Migrating to another environment is a monumental engineering effort.
+* **Snowflake:** A true multi-cloud platform available across AWS, Azure, and Google Cloud Platform (GCP). The user experience, SQL dialect, and functionality remain identical regardless of the underlying cloud provider, preventing vendor lock-in.
