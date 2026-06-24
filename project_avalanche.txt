@@ -1,0 +1,47 @@
+
+day2
+
+kth lvl of tree
+lowest common ancestor
+Lowest Common Ancestor of Deepest Leaves
+Construct tree using preorder and inorder
+Construct tree using postorder and inorder 
+Transform to Sum tree
+
+completed abv problems
+
+perceptron vid
+perceptron trick (idk was out of my head i was barely able to make some notes)
+
+
+wasn't able to revise and try Construct tree using preorder and postorder and loss fn vid and problem with perceptron
+
+
+day3 WFH (no work)
+
+binary tree paths (Apna college) (40% gpt) done
+pathsum 1 (20% gpt) done
+path sum 2 (5% gpt) done
+print root to leaf path in BT (Striver) (self)done
+maximum width of tree (80% gpt)
+
+completed abv problems
+
+
+ongoing :
+
+DSA - skipped felt tired
+top lvl view
+bottom lvl view
+right lvl view
+left lvl view
+
+
+AI - skipped felt tired
+Video 6 Loss Function
+Video 7 Problem With Perceptron
+Video 8 MLP Notation
+Video 9 MLP Intuition
+
+Revise
+
